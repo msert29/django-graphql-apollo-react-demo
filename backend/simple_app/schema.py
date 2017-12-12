@@ -64,8 +64,8 @@ class Query(graphene.AbstractType):
     def resolve_all_messages(self, info, **kwargs):
         return models.Message.objects.all()
 
-    def resolve_message(self, info, message_id):
-        rid = from_global_id(message_id)
+    def resolve_message(self, info, id):
+        rid = from_global_id(id)
         return models.Message.objects.get(pk=rid[1])
 
     def resolve_current_user(self, info, **kwargs):

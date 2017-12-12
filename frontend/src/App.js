@@ -1,43 +1,42 @@
-import React, { Component } from 'react'
-import {
-  ApolloProvider,
-  ApolloClient,
-  createBatchingNetworkInterface,
-} from 'react-apollo'
-import { BrowserRouter as Router, Route, Switch, Link } from 'react-router-dom'
+import React, { Component } from 'react';
+import {BrowserRouter as Router, Route, Switch, Link} from 'react-router-dom';
+
+import { ApolloClient } from 'apollo-client';
+import { createHttpLink } from 'apollo-link-http';
+import { setContext } from 'apollo-link-context';
+import { InMemoryCache } from 'apollo-cache-inmemory';
+import { ApolloProvider } from 'react-apollo';
+import { BatchHttpLink } from "apollo-link-batch-http";
+import { ApolloLink, concat } from 'apollo-link';
+
+
 import CreateView from './views/CreateView'
 import DetailView from './views/DetailView'
 import ListView from './views/ListView'
 import LoginView from './views/LoginView'
 import LogoutView from './views/LogoutView'
 
-const networkInterface = createBatchingNetworkInterface({
-  uri: 'http://localhost:8000/gql',
-  batchInterval: 10,
-  opts: {
-    credentials: 'same-origin',
-  },
-})
+import './App.css';
+import logo from './logo.svg';
 
-networkInterface.use([
-  {
-    applyBatchMiddleware(req, next) {
-      if (!req.options.headers) {
-        req.options.headers = {}
-      }
+const authMiddleware = new ApolloLink((operation, forward) => {
+  const token = localStorage.getItem('token') ? localStorage.getItem('token') : null;
+  operation.setContext({
+    headers: {
+      authorization: `JWT ${token}`
+    }
+  });
+  return forward(operation)
+});
 
-      const token = localStorage.getItem('token')
-        ? localStorage.getItem('token')
-        : null
-      req.options.headers['authorization'] = `JWT ${token}`
-      next()
-    },
-  },
-])
+
+const link = new BatchHttpLink({ uri: "http://localhost:8000/gql", credentials: 'same-origin' });
 
 const client = new ApolloClient({
-  networkInterface: networkInterface,
-})
+    link: concat(authMiddleware, link),
+    cache: new InMemoryCache(),
+    connectToDevTools: true,
+});
 
 class App extends Component {
   render() {
