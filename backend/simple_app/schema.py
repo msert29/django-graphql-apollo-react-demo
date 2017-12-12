@@ -1,6 +1,8 @@
-import json
-import graphene
+from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
+import json
+
+import graphene
 from graphene_django.types import DjangoObjectType
 from graphene_django.filter.fields import DjangoFilterConnectionField
 from graphql_relay.node.node import from_global_id
@@ -21,7 +23,7 @@ class MessageType(DjangoObjectType):
 
 
 class CreateMessageMutation(graphene.Mutation):
-    class Input:
+    class Arguments:
         message = graphene.String()
 
     status = graphene.Int()
@@ -29,19 +31,20 @@ class CreateMessageMutation(graphene.Mutation):
     message = graphene.Field(MessageType)
 
     @staticmethod
-    def mutate(root, args, context, info):
-        if not context.user.is_authenticated():
+    def mutate(self, info, message):
+        context = info.context
+        message = models.Message(user=context.user, message=message)
+        if not context.user.is_authenticated:
             return CreateMessageMutation(status=403)
-        message = args.get('message', '').strip()
-        if not message:
-            return CreateMessageMutation(
-                status=400,
-                formErrors=json.dumps(
-                    {'message': ['Please enter a message.']}))
-        obj = models.Message.objects.create(
-            user=context.user, message=message
-        )
-        return CreateMessageMutation(status=200, message=obj)
+
+        try:
+            message.full_clean()
+
+        except ValidationError as e:
+            return CreateMessageMutation(status=400, formErrors=json.dumps(e))
+        else:
+            message.save()
+            return CreateMessageMutation(status=200, message=message)
 
 
 class Mutation(graphene.AbstractType):
@@ -49,20 +52,24 @@ class Mutation(graphene.AbstractType):
 
 
 class Query(graphene.AbstractType):
-    current_user = graphene.Field(UserType)
+    all_messages = DjangoFilterConnectionField(MessageType)
+    current_user = graphene.Field(UserType,
+                                  id=graphene.Int(),
+                                  name=graphene.String())
+    message = graphene.Field(MessageType,
+                             id=graphene.ID(),
+                             message=graphene.String())
 
-    def resolve_current_user(self, args, context, info):
-        if not context.user.is_authenticated():
-            return None
-        return context.user
 
-    message = graphene.Field(MessageType, id=graphene.ID())
+    def resolve_all_messages(self, info, **kwargs):
+        return models.Message.objects.all()
 
-    def resolve_message(self, args, context, info):
-        rid = from_global_id(args.get('id'))
+    def resolve_message(self, info, message_id):
+        rid = from_global_id(message_id)
         return models.Message.objects.get(pk=rid[1])
 
-    all_messages = DjangoFilterConnectionField(MessageType)
-
-    def resolve_all_messages(self, args, context, info):
-        return models.Message.objects.all()
+    def resolve_current_user(self, info, **kwargs):
+        context = info.context
+        if not context.user.is_authenticated:
+            return None
+        return context.user

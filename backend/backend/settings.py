@@ -62,7 +62,7 @@ JWT_VERIFY_EXPIRATION = False
 
 CORS_ORIGIN_ALLOW_ALL = True
 
-MIDDLEWARE_CLASSES = [
+MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'backend.middleware.JWTMiddleware',

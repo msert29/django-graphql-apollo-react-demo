@@ -2,10 +2,13 @@ import graphene
 
 import simple_app.schema
 
+import graphene
+import simple_app.schema
+
 
 class Mutations(
     simple_app.schema.Mutation,
-    graphene.ObjectType,
+    graphene.ObjectType
 ):
     pass
 
@@ -15,6 +18,5 @@ class Queries(
     graphene.ObjectType
 ):
     pass
-
 
 schema = graphene.Schema(query=Queries, mutation=Mutations)
